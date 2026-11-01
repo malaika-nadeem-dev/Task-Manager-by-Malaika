@@ -1,0 +1,102 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny: All unmapped paths are strictly forbidden
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Security Primitives & Helpers
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // User profile validation
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'email', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'email', 'displayName', 'photoURL', 'createdAt', 'updatedAt'])
+        && data.id is string && data.id == request.auth.uid
+        && data.email is string && data.email.size() <= 254
+        && (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100))
+        && (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 500))
+        && data.createdAt is string && data.createdAt.size() <= 50
+        && data.updatedAt is string && data.updatedAt.size() <= 50;
+    }
+
+    // Task entity validation
+    function isValidTask(data) {
+      return data.keys().hasAll(['id', 'userId', 'title', 'status', 'priority', 'category', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'userId', 'title', 'description', 'status', 'priority', 'category', 'dueDate', 'createdAt', 'updatedAt', 'completedAt'])
+        && data.id is string && isValidId(data.id)
+        && data.userId is string && data.userId == request.auth.uid
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 140
+        && (!('description' in data) || (data.description is string && data.description.size() <= 1000))
+        && data.status in ['todo', 'in_progress', 'completed']
+        && data.priority in ['low', 'medium', 'high', 'urgent']
+        && data.category in ['work', 'personal', 'study', 'health', 'finance', 'other']
+        && (!('dueDate' in data) || (data.dueDate is string && data.dueDate.size() <= 50))
+        && (!('completedAt' in data) || (data.completedAt is string && data.completedAt.size() <= 50))
+        && data.createdAt is string && data.createdAt.size() <= 50
+        && data.updatedAt is string && data.updatedAt.size() <= 50;
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow create: if isSignedIn() && isValidId(userId) && userId == request.auth.uid && isValidUser(incoming());
+      allow update: if isSignedIn() && isValidId(userId) && userId == request.auth.uid
+        && isValidUser(incoming())
+        && incoming().id == existing().id
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'updatedAt', 'email']);
+      allow delete: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+    }
+
+    // Tasks Collection
+    match /tasks/{taskId} {
+      // Secure list: Queries must explicitly filter by userId == request.auth.uid
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      // Direct get by taskId
+      allow get: if isSignedIn() && isValidId(taskId) && resource.data.userId == request.auth.uid;
+
+      // Creation: ID matches path and payload, owner is caller
+      allow create: if isSignedIn()
+        && isValidId(taskId)
+        && taskId == incoming().id
+        && incoming().userId == request.auth.uid
+        && isValidTask(incoming());
+
+      // Update: Immutable ownership & creation time, strictly action-scoped
+      allow update: if isSignedIn()
+        && isValidId(taskId)
+        && existing().userId == request.auth.uid
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && isValidTask(incoming())
+        && (
+          // Action 1: Full task edit
+          incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'status', 'priority', 'category', 'dueDate', 'updatedAt', 'completedAt'])
+          ||
+          // Action 2: Quick status toggle or completion
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt', 'completedAt'])
+        );
+
+      // Deletion: Only owner can delete their task
+      allow delete: if isSignedIn() && isValidId(taskId) && resource.data.userId == request.auth.uid;
+    }
+  }
+}

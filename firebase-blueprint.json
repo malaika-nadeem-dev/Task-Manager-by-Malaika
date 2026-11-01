@@ -1,0 +1,129 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information storing account details and preferences.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique user identifier matching Firebase Authentication UID",
+          "maxLength": 128
+        },
+        "email": {
+          "type": "string",
+          "description": "User email address",
+          "maxLength": 254
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User display name",
+          "maxLength": 100
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "User profile avatar URL",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO timestamp of account record creation"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO timestamp of last account update"
+        }
+      },
+      "required": ["id", "email", "createdAt", "updatedAt"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "Task item with priority, category, status, and deadline.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique task identifier",
+          "maxLength": 128
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner user UID from Firebase Authentication",
+          "maxLength": 128
+        },
+        "title": {
+          "type": "string",
+          "description": "Task title or headline",
+          "minLength": 1,
+          "maxLength": 140
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed notes or task description",
+          "maxLength": 1000
+        },
+        "status": {
+          "type": "string",
+          "description": "Current status of the task",
+          "enum": ["todo", "in_progress", "completed"]
+        },
+        "priority": {
+          "type": "string",
+          "description": "Priority level of the task",
+          "enum": ["low", "medium", "high", "urgent"]
+        },
+        "category": {
+          "type": "string",
+          "description": "Category or label tag for the task",
+          "enum": ["work", "personal", "study", "health", "finance", "other"]
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "Target completion date in YYYY-MM-DD format",
+          "maxLength": 50
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO timestamp when the task was created"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO timestamp when the task was last updated"
+        },
+        "completedAt": {
+          "type": "string",
+          "description": "ISO timestamp when the task was marked completed, if completed",
+          "maxLength": 50
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "title",
+        "status",
+        "priority",
+        "category",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/User"
+      },
+      "description": "User profile records restricted strictly to the document owner"
+    },
+    "/tasks/{taskId}": {
+      "schema": {
+        "$ref": "#/entities/Task"
+      },
+      "description": "Tasks created by users with strict per-user ownership and ABAC rules"
+    }
+  }
+}

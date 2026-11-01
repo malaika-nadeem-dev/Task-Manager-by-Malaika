@@ -1,0 +1,8 @@
+{
+  "name": "My Task Manager",
+  "description": "A secure, responsive task management web app with Firebase Authentication, Cloud Firestore real-time storage, priority tagging, and personal dashboard analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
